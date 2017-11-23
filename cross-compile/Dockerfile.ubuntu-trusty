@@ -1,0 +1,72 @@
+FROM ubuntu:trusty
+MAINTAINER Vincent Palatin <vpalatin@chromium.org>
+
+ARG VER=sigrok-twinkie-0.5.0
+
+RUN apt-get update \
+    && apt-get upgrade -y \
+    && apt-get install -y --no-install-recommends \
+        debhelper \
+        devscripts equivs \
+        dh-make \
+        dpkg-dev \
+        git \
+        software-properties-common \
+	wget \
+    && apt-get clean
+
+WORKDIR /wip
+
+RUN mkdir -p /wip/packages
+RUN mkdir -p /wip/build
+RUN mkdir -p /wip/build/lib/python2.7/site-packages
+
+ENV BUILDPATH="/wip/build" PKGPATH="/wip/build/lib/pkgconfig"
+ENV PYTHONPATH="/wip/build/lib/python2.7/site-packages"
+
+RUN apt-get install -y --no-install-recommends \
+	gcc g++ libtool automake autoconf libftdi-dev libusb-1.0-0-dev libglib2.0-dev check \
+	libzip-dev libglibmm-2.4-dev doxygen python3.4-dev python-gobject-dev swig3.0 \
+	qtbase5-dev qtbase5-dev-tools libqt5svg5-dev cmake python-setuptools python-numpy \
+	libboost1.55-dev libboost-filesystem1.55-dev libboost-system1.55-dev libboost-test1.55-dev libboost-serialization1.55-dev
+
+RUN git clone https://github.com/vpalatin/libsigrok.git -b twinkie-0.5.0
+RUN git clone https://github.com/vpalatin/libsigrokdecode.git -b twinkie-0.5.0
+RUN git clone https://github.com/vpalatin/sigrok-cli.git -b twinkie-0.7.0
+RUN git clone https://github.com/vpalatin/pulseview.git -b twinkie-0.4.0
+
+WORKDIR /wip/libsigrok
+RUN ./autogen.sh
+RUN PKG_CONFIG_PATH="${PKGPATH}" ./configure --prefix="${BUILDPATH}"
+RUN make install -j
+
+WORKDIR /wip/libsigrokdecode
+RUN ./autogen.sh
+RUN PKG_CONFIG_PATH="${PKGPATH}" ./configure --prefix="${BUILDPATH}"
+RUN make install -j
+
+WORKDIR /wip/sigrok-cli
+RUN ./autogen.sh
+RUN PKG_CONFIG_PATH="${PKGPATH}" ./configure --prefix="${BUILDPATH}"
+RUN make install -j
+
+WORKDIR /wip/pulseview
+RUN PKG_CONFIG_PATH="${PKGPATH}" cmake -DCMAKE_INSTALL_PREFIX:PATH=${BUILDPATH} .
+RUN make install -j
+
+WORKDIR /wip
+RUN cp -ar build ${VER}
+
+WORKDIR /wip/${VER}
+RUN mv bin/sigrok-cli bin/sigrok-cli.real
+RUN mv bin/pulseview bin/pulseview.real
+COPY sigrok-cli.sh bin/sigrok-cli
+COPY pulseview.sh bin/pulseview
+
+WORKDIR /wip
+RUN tar cvzf packages/${VER}.tar.gz ${VER}
+
+# A bit of testing
+#RUN ./sigrok-twinkie-0.5.0/bin/sigrok-cli -d chromium-twinkie --show
+
+ENTRYPOINT /bin/bash -c 'while(true); do sleep 10; done'

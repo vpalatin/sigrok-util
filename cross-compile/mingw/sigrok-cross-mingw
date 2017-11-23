@@ -50,7 +50,8 @@ SF_MIRROR=switch.dl.sourceforge.net
 WGET="wget -c --quiet"
 GIT_CLONE="git clone --depth=1"
 
-REPO_BASE="git://sigrok.org"
+#REPO_BASE="git://sigrok.org"
+REPO_BASE="https://github.com/vpalatin"
 
 # -----------------------------------------------------------------------------
 
@@ -134,17 +135,8 @@ make -j1 $V
 make install $V
 cd ..
 
-# libserialport
-$GIT_CLONE $REPO_BASE/libserialport
-cd libserialport
-./autogen.sh
-./configure $C $L
-make $PARALLEL $V
-make install $V
-cd ..
-
 # libsigrok
-$GIT_CLONE $REPO_BASE/libsigrok
+$GIT_CLONE $REPO_BASE/libsigrok -b twinkie-0.5.0
 cd libsigrok
 ./autogen.sh
 ./configure $C $L
@@ -153,7 +145,7 @@ make install $V
 cd ..
 
 # libsigrokdecode
-$GIT_CLONE $REPO_BASE/libsigrokdecode
+$GIT_CLONE $REPO_BASE/libsigrokdecode -b twinkie-0.5.0
 cd libsigrokdecode
 ./autogen.sh
 ./configure $C $L
@@ -161,24 +153,9 @@ make $PARALLEL $V
 make install $V
 cd ..
 
-# sigrok-firmware
-$GIT_CLONE $REPO_BASE/sigrok-firmware
-cd sigrok-firmware
-./autogen.sh
-# Nothing gets cross-compiled here, we just need 'make install' basically.
-./configure --prefix=$PREFIX
-make install $V
-cd ..
-
-# sigrok-firmware-fx2lafw
-$GIT_CLONE $REPO_BASE/sigrok-firmware-fx2lafw
-cd sigrok-firmware-fx2lafw
-./autogen.sh
-# We're building the fx2lafw firmware on the host, no need to cross-compile.
-./configure --prefix=$PREFIX
-make $PARALLEL $V
-make install $V
-cd ..
+# Dummy firmware for install
+mkdir -p $PREFIX/share/sigrok-firmware
+touch $PREFIX/share/sigrok-firmware/NO_FIRMWARE_BLOB.bin
 
 # sigrok-dumps
 $GIT_CLONE $REPO_BASE/sigrok-dumps
@@ -187,7 +164,7 @@ make install DESTDIR=$PREFIX/share/sigrok-dumps $V
 cd ..
 
 # sigrok-cli
-$GIT_CLONE $REPO_BASE/sigrok-cli
+$GIT_CLONE $REPO_BASE/sigrok-cli -b twinkie-0.7.0
 cd sigrok-cli
 ./autogen.sh
 ./configure $C
@@ -197,7 +174,7 @@ makensis -DHOME=$HOME contrib/sigrok-cli_cross.nsi
 cd ..
 
 # PulseView
-$GIT_CLONE $REPO_BASE/pulseview
+$GIT_CLONE $REPO_BASE/pulseview -b twinkie-0.4.0
 cd pulseview
 cp ../../FileAssociation.nsh contrib
 if [ $DEBUG = 1 ]; then

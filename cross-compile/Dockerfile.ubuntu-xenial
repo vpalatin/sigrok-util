@@ -1,0 +1,68 @@
+FROM ubuntu:xenial
+MAINTAINER Vincent Palatin <vpalatin@chromium.org>
+
+RUN apt-get update \
+    && apt-get upgrade -y \
+    && apt-get install -y --no-install-recommends \
+        debhelper \
+        devscripts equivs \
+	cmake \
+        dh-make \
+        dpkg-dev \
+        git \
+        software-properties-common \
+	wget \
+    && apt-get clean
+
+WORKDIR /wip
+
+RUN mkdir -p /wip/packages
+
+ENV DEBFULLNAME="Vincent Palatin" DEBEMAIL="vpalatin@chromium.org"
+
+RUN git config --global user.name "${DEBFULLNAME}"
+RUN git config --global user.email "${DEBEMAIL}"
+
+RUN git clone git://anonscm.debian.org/pkg-electronics/libsigrok.git
+RUN git clone git://anonscm.debian.org/pkg-electronics/libsigrokdecode.git
+RUN git clone git://anonscm.debian.org/pkg-electronics/sigrok-cli.git
+RUN git clone git://anonscm.debian.org/pkg-electronics/pulseview.git
+
+WORKDIR /wip/libsigrok
+RUN git remote add twinkie https://github.com/vpalatin/libsigrok.git && git fetch twinkie
+RUN git cherry-pick HEAD..twinkie/twinkie-0.5.0
+RUN dch --local twinkie "Rebuild with Chromium-Twinkie driver."
+RUN mk-build-deps -t "apt-get --no-install-recommends -y" --install --remove
+RUN fakeroot debian/rules binary
+RUN dpkg -i ../*.deb
+
+WORKDIR /wip/libsigrokdecode
+RUN dch --local twinkie "Rebuild in Twinkie environment."
+RUN mk-build-deps -t "apt-get --no-install-recommends -y" --install --remove
+RUN fakeroot debian/rules binary
+RUN dpkg -i ../*.deb
+
+WORKDIR /wip/sigrok-cli
+RUN git remote add twinkie https://github.com/vpalatin/sigrok-cli.git && git fetch twinkie
+RUN git cherry-pick HEAD..twinkie/twinkie-0.7.0
+RUN dch --local twinkie "Rebuild with the fix for Twinkie analog."
+RUN sed -i -e "s@debhelper (>= 10),@debhelper,@g" debian/control
+RUN mk-build-deps -t "apt-get --no-install-recommends -y" --install --remove
+RUN fakeroot debian/rules binary
+
+WORKDIR /wip/pulseview
+RUN dch --local twinkie "Rebuild in Twinkie environment."
+RUN sed -i -e "s@debhelper (>= 10),@debhelper,@g" debian/control
+RUN echo "9" > debian/compat
+RUN mk-build-deps -t "apt-get --no-install-recommends -y" --install --remove
+RUN fakeroot debian/rules binary
+
+RUN mkdir -p /wip/packages
+RUN cp /wip/*.deb /wip/packages/
+
+# A bit of testing
+WORKDIR /wip/packages
+#RUN cd /wip/packages && dpkg -i *.deb
+#RUN sigrok-cli -d chromium-twinkie --show
+
+ENTRYPOINT /bin/bash -c 'while(true); do sleep 10; done'

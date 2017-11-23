@@ -1,0 +1,38 @@
+FROM debian:stretch
+MAINTAINER Vincent Palatin <vpalatin@chromium.org>
+
+RUN apt-get update \
+    && apt-get upgrade -y \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates \
+	sdcc nsis \
+	autoconf automake autopoint bash bison bzip2 flex gettext\
+        git g++ gperf intltool libffi-dev libgdk-pixbuf2.0-dev \
+	libtool-bin libltdl-dev libssl-dev libxml-parser-perl make \
+	openssl p7zip-full patch perl pkg-config python ruby scons \
+	sed unzip wget xz-utils \
+	g++-multilib libc6-dev-i386 doxygen \
+    && apt-get clean
+
+WORKDIR /wip
+COPY mingw/sigrok-cross-mingw mingw/FileAssociation.nsh mingw/libusb_raw_io.patch /wip/
+
+RUN mkdir -p /wip/packages
+
+# MXE cross-compile environment for MinGW-w64/Windows
+RUN git clone https://github.com/mxe/mxe.git mxe-git
+WORKDIR /wip/mxe-git
+COPY mingw/mxe_fixes.patch .
+RUN patch -p1 < mxe_fixes.patch
+RUN make MXE_TARGETS=i686-w64-mingw32.static.posix \
+   MXE_PLUGIN_DIRS=plugins/examples/qt5-freeze \
+   gcc glib libzip libusb1 libftdi1 glibmm qtbase qtimageformats qtsvg \
+   boost check qtbase_CONFIGURE_OPTS='-no-sql-mysql'
+
+WORKDIR /wip
+ENV HOME=/wip
+RUN ./sigrok-cross-mingw
+
+RUN cp /wip/build/pulseview/contrib/*.exe  /wip/build/sigrok-cli/contrib/*.exe  /wip/packages/
+
+ENTRYPOINT /bin/bash -c 'while(true); do sleep 10; done'
